@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - storage:/app/storage
+      - data:/app/data
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/app.db
+      - CONCURRENT_WORKERS=4
+      - FILE_MAX_SIZE=209715200
+      - FILE_TTL_HOURS=24
+      - STORAGE_DIR=/app/storage
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: celery -A backend.app.worker.app worker --concurrency=4 --loglevel=info
+    volumes:
+      - storage:/app/storage
+      - data:/app/data
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/app.db
+      - CONCURRENT_WORKERS=4
+      - FILE_MAX_SIZE=209715200
+      - FILE_TTL_HOURS=24
+      - STORAGE_DIR=/app/storage
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  storage:
+  data:
+  redis_data:
